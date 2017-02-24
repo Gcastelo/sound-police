@@ -2,6 +2,7 @@
 
 * Python 2.7.x
 * Pip
+* Portaudio: `brew install portaudio`
 * PyAudio: `pip install pyaudio`
 
 # Run
