@@ -8,39 +8,57 @@ import thread
 import sys
 
 if len(sys.argv) < 2:
-    print("Triggers a sound over a dB threshold.\n\nUsage: %s <dB>" % sys.argv[0])
+    print("Triggers a sound over a dB threshold.\n\nUsage: %s <dB>" %
+          sys.argv[0])
     sys.exit(-1)
 
-THRESHOLD = int(sys.argv[1])
+THRESHOLD_DB = int(sys.argv[1])
+THRESHOLD_LIMIT_SECS = 3
+RESET_AFTER_SECS = 10
+
 CHUNK = 1024
+RATE = 44100
+
+RESET_SAMPLES = 0
+THRESHOLD_SAMPLES = 0
+
+THRESHOLD_SAMPLESIZE = (RATE / CHUNK) * THRESHOLD_LIMIT_SECS
+RESET_SAMPLESIZE = (RATE / CHUNK) * RESET_AFTER_SECS
+
 FORMAT = pyaudio.paInt16
 CHANNELS = 2
-RATE = 44000
-RECORD_SECONDS = 10
 WIDTH = 2
-
 playing = False
 p = pyaudio.PyAudio()
 
+print THRESHOLD_SAMPLESIZE
+print RESET_SAMPLESIZE
+
+
 def play_sound():
     global playing
+    global THRESHOLD_SAMPLES
+    global RESET_SAMPLES
     playing = True
     CHUNK_WAV = 1024
     wf = wave.open('alert.wav', 'rb')
     streamWave = p.open(format=p.get_format_from_width(wf.getsampwidth()),
-                    channels=wf.getnchannels(),
-                    rate=wf.getframerate(),
-                    output=True)
+                        channels=wf.getnchannels(),
+                        rate=wf.getframerate(),
+                        output=True)
     data = wf.readframes(CHUNK)
     while data != '':
         streamWave.write(data)
         data = wf.readframes(CHUNK)
     streamWave.stop_stream()
     streamWave.close()
+    THRESHOLD_SAMPLES = 0
+    RESET_SAMPLES = 0
     playing = False
 
-def to_decibel( rms ):
-    return 20 * math.log10(rms)
+
+def to_decibel(rms):
+    return math.ceil(20 * math.log10(rms))
 
 stream = p.open(format=FORMAT,
                 channels=CHANNELS,
@@ -58,7 +76,16 @@ while stream.is_active:
         continue
     dec = to_decibel(rms)
     #print dec
-    #print THRESHOLD
-    #print playing
-    if dec >= THRESHOLD and not playing:
-        thread.start_new_thread(play_sound, ())
+    if dec >= THRESHOLD_DB:
+        if not playing:
+            if THRESHOLD_SAMPLES >= THRESHOLD_SAMPLESIZE:
+                thread.start_new_thread(play_sound, ())
+            else:
+                THRESHOLD_SAMPLES += 1
+        print THRESHOLD_SAMPLES
+    else:
+        RESET_SAMPLES += 1
+        if RESET_SAMPLES >= RESET_SAMPLESIZE:
+            THRESHOLD_SAMPLES = 0
+            RESET_SAMPLES = 0
+            print 'RESETTING'
