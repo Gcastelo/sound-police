@@ -7,7 +7,7 @@
 
 # Run
 
-`python sensor.py <valueDb>`
+`python sensor.py <valueDb> [-ts threshold_duration_seconds] [-rs reset_after_seconds]`
 
 e.g.
 
