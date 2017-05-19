@@ -24,6 +24,7 @@ _threshold_samples = 0
 _playing = False
 _p = pyaudio.PyAudio()
 
+
 def parse_opts():
     PARSER = argparse.ArgumentParser()
     PARSER.add_argument("db", help="Decibel threshold", type=int)
@@ -45,6 +46,7 @@ def parse_opts():
     RESET_AFTER_SECS = ARGS.reset_secs if ARGS.reset_secs else 10
     THRESHOLD_SAMPLESIZE = (RATE / CHUNK_SIZE) * THRESHOLD_LIMIT_SECS
     RESET_SAMPLESIZE = (RATE / CHUNK_SIZE) * RESET_AFTER_SECS
+
 
 def play_sound():
     global _playing
@@ -69,6 +71,7 @@ def play_sound():
 
 def to_decibel(rms):
     return math.ceil(20 * math.log10(rms))
+
 
 def main():
     parse_opts()
@@ -108,6 +111,7 @@ def main():
                 _threshold_samples = 0
                 _reset_samples = 0
                 print 'RESETTING'
+
 
 if __name__ == "__main__":
     main()

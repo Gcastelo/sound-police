@@ -3,7 +3,7 @@
 * Python 2.7.x
 * Pip
 * Portaudio: `brew install portaudio`
-* PyAudio: `pip install pyaudio`
+* Install dependencies: `pip install -r requirements.txt`
 
 # For Pi usage:
 
