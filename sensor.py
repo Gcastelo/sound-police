@@ -1,117 +1,97 @@
-"""Sound sensor: Triggers a sound when over a certain dB value"""
-
-import wave
+import argparse
 import audioop
 import math
-import thread
-import argparse
 import pyaudio
-
-THRESHOLD_DB = None
-THRESHOLD_LIMIT_SECS = None
-RESET_AFTER_SECS = None
-THRESHOLD_SAMPLESIZE = None
-RESET_SAMPLESIZE = None
-
-CHUNK_SIZE = 1024
-RATE = 44100
-FORMAT = pyaudio.paInt16
-CHANNELS = 2
-WIDTH = 2
-
-_reset_samples = 0
-_threshold_samples = 0
-_playing = False
-_p = pyaudio.PyAudio()
+import thread
+import wave
 
 
-def parse_opts():
-    PARSER = argparse.ArgumentParser()
-    PARSER.add_argument("db", help="Decibel threshold", type=int)
-    PARSER.add_argument("-ts", "--threshold-secs",
-                        help="Threshold limit in secs", type=int)
-    PARSER.add_argument("-rs", "--reset-secs", help="Reset after secs", type=int)
+class Sensor(object):
+    CHUNK_SIZE = 1024
+    RATE = 44100
+    FORMAT = pyaudio.paInt16
+    CHANNELS = 2
+    WIDTH = 2
 
-    ARGS = PARSER.parse_args()
-    print ARGS
+    def __init__(self, threshold, duration, reset_after):
+        self.threshold = threshold
+        self.threshold_limit_seconds = duration
+        self.reset_after = reset_after
 
-    global THRESHOLD_DB
-    global THRESHOLD_LIMIT_SECS
-    global RESET_AFTER_SECS
-    global THRESHOLD_SAMPLESIZE
-    global RESET_SAMPLESIZE
+        self.threshold_sample_size = (self.RATE / self.CHUNK_SIZE) * self.threshold_limit_seconds
+        self.reset_sample_size = (self.RATE / self.CHUNK_SIZE) * self.reset_after
 
-    THRESHOLD_DB = ARGS.db if ARGS.db else 50
-    THRESHOLD_LIMIT_SECS = ARGS.threshold_secs if ARGS.threshold_secs else 3
-    RESET_AFTER_SECS = ARGS.reset_secs if ARGS.reset_secs else 10
-    THRESHOLD_SAMPLESIZE = (RATE / CHUNK_SIZE) * THRESHOLD_LIMIT_SECS
-    RESET_SAMPLESIZE = (RATE / CHUNK_SIZE) * RESET_AFTER_SECS
+        self.reset_samples = 0
+        self.threshold_samples = 0
+        self.playing = False
 
+    def detect(self):
+        audio = pyaudio.PyAudio()
+        stream = audio.open(format=self.FORMAT,
+                            channels=self.CHANNELS,
+                            rate=self.RATE,
+                            input=True,
+                            frames_per_buffer=self.CHUNK_SIZE)
 
-def play_sound():
-    global _playing
-    global _threshold_samples
-    global _reset_samples
-    _playing = True
-    wave_file = wave.open('alert.wav', 'rb')
-    stream_wave = _p.open(format=_p.get_format_from_width(wave_file.getsampwidth()),
-                          channels=wave_file.getnchannels(),
-                          rate=wave_file.getframerate(),
-                          output=True)
-    data = wave_file.readframes(CHUNK_SIZE)
-    while data != '':
-        stream_wave.write(data)
-        data = wave_file.readframes(CHUNK_SIZE)
-    stream_wave.stop_stream()
-    stream_wave.close()
-    _threshold_samples = 0
-    _reset_samples = 0
-    _playing = False
+        print "* recording"
 
+        while stream.is_active:
+            data = stream.read(self.CHUNK_SIZE, exception_on_overflow=False)
+            rms = audioop.rms(data, 2)
+            if rms == 0:
+                continue
+            dec = self._to_decibel(rms)
+            # print dec
+            if dec >= self.threshold:
+                if not self.playing:
+                    if self.threshold_samples >= self.threshold_sample_size:
+                        thread.start_new_thread(self._play_sound, ())
+                    else:
+                        self.threshold_samples += 1
 
-def to_decibel(rms):
-    return math.ceil(20 * math.log10(rms))
+                print self.threshold_samples
+            else:
+                self.reset_samples += 1
+                if self.reset_samples >= self.reset_sample_size:
+                    self.threshold_samples = 0
+                    self.reset_samples = 0
+                    print 'RESETTING'
 
+    def _play_sound(self):
+        self.playing = True
+        wave_file = wave.open('alert.wav', 'rb')
 
-def main():
-    parse_opts()
-    print "THRESHOLD_DB: ", THRESHOLD_DB
-    print "THRESHOLD_LIMIT_SECS: ", THRESHOLD_LIMIT_SECS
-    print "RESET_AFTER_SECS: ", RESET_AFTER_SECS
-    print "THRESHOLD_SAMPLESIZE: ", THRESHOLD_SAMPLESIZE
-    print "RESET_SAMPLESIZE: ", RESET_SAMPLESIZE
-    global _reset_samples
-    global _threshold_samples
+        audio = pyaudio.PyAudio()
 
-    stream = _p.open(format=FORMAT,
-                     channels=CHANNELS,
-                     rate=RATE,
-                     input=True,
-                     frames_per_buffer=CHUNK_SIZE)
+        stream_wave = audio.open(format=audio.get_format_from_width(wave_file.getsampwidth()),
+                                 channels=wave_file.getnchannels(),
+                                 rate=wave_file.getframerate(),
+                                 output=True)
+        data = wave_file.readframes(self.CHUNK_SIZE)
+        while data != '':
+            stream_wave.write(data)
+            data = wave_file.readframes(self.CHUNK_SIZE)
+        stream_wave.stop_stream()
+        stream_wave.close()
 
-    print "* recording"
+        self.threshold_samples = 0
+        self.reset_samples = 0
+        self.playing = False
 
-    while stream.is_active:
-        data = stream.read(CHUNK_SIZE, exception_on_overflow=False)
-        rms = audioop.rms(data, 2)
-        if rms == 0:
-            continue
-        dec = to_decibel(rms)
-        # print dec
-        if dec >= THRESHOLD_DB:
-            if not _playing:
-                if _threshold_samples >= THRESHOLD_SAMPLESIZE:
-                    thread.start_new_thread(play_sound, ())
-                else:
-                    _threshold_samples += 1
-            print _threshold_samples
-        else:
-            _reset_samples += 1
-            if _reset_samples >= RESET_SAMPLESIZE:
-                _threshold_samples = 0
-                _reset_samples = 0
-                print 'RESETTING'
+    @staticmethod
+    def _to_decibel(rms):
+        return math.ceil(20 * math.log10(rms))
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--db', default=50, type=int, help='threshold value in dB')
+    parser.add_argument('--ts', default=3, type=int, help='threshold duration in seconds')
+    parser.add_argument('--rs', default=10, type=int, help='reset after how many seconds')
+    args = parser.parse_args()
+
+    print ('args')
+    print (args)
+
+    sensor = Sensor(args.db, args.ts, args.rs)
+    sensor.detect()

@@ -22,7 +22,7 @@ After struggling to do this cleanly with ASLA configs in raspbian "jesse", I gav
 
 # Run
 
-`python sensor.py <valueDb> [-ts threshold_duration_seconds] [-rs reset_after_seconds]`
+`python sensor.py --db <valueDb> [--ts <threshold_duration_seconds>] [--rs <reset_after_seconds>]`
 
 e.g.
 
