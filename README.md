@@ -7,11 +7,11 @@
 
 # For Pi usage:
 
-apt-get install python-dev
-apt-get install libportaudio-dev
-apt-get install portaudio19-dev
-sudo apt-get install python-pip
-pip install pyaudio
+* apt-get install python-dev
+* apt-get install libportaudio-dev
+* apt-get install portaudio19-dev
+* sudo apt-get install python-pip
+* pip install pyaudio
 
 Enable usb audio:
 https://github.com/alexa/alexa-avs-sample-app/issues/85
