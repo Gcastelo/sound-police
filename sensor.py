@@ -4,13 +4,13 @@ import math
 import pyaudio
 import thread
 import wave
-
+import pygame
 
 class Sensor(object):
     CHUNK_SIZE = 1024
-    RATE = 44100
+    RATE = 48000
     FORMAT = pyaudio.paInt16
-    CHANNELS = 2
+    CHANNELS = 1
     WIDTH = 2
 
     def __init__(self, threshold, duration, reset_after):
@@ -31,8 +31,9 @@ class Sensor(object):
                             channels=self.CHANNELS,
                             rate=self.RATE,
                             input=True,
-                            frames_per_buffer=self.CHUNK_SIZE)
-
+                            frames_per_buffer=self.CHUNK_SIZE,
+			    input_device_index=2,
+			    output=False)
         print "* recording"
 
         while stream.is_active:
@@ -41,15 +42,13 @@ class Sensor(object):
             if rms == 0:
                 continue
             dec = self._to_decibel(rms)
-            # print dec
+            print dec
             if dec >= self.threshold:
                 if not self.playing:
                     if self.threshold_samples >= self.threshold_sample_size:
                         thread.start_new_thread(self._play_sound, ())
                     else:
                         self.threshold_samples += 1
-
-                print self.threshold_samples
             else:
                 self.reset_samples += 1
                 if self.reset_samples >= self.reset_sample_size:
@@ -59,21 +58,9 @@ class Sensor(object):
 
     def _play_sound(self):
         self.playing = True
-        wave_file = wave.open('alert.wav', 'rb')
-
-        audio = pyaudio.PyAudio()
-
-        stream_wave = audio.open(format=audio.get_format_from_width(wave_file.getsampwidth()),
-                                 channels=wave_file.getnchannels(),
-                                 rate=wave_file.getframerate(),
-                                 output=True)
-        data = wave_file.readframes(self.CHUNK_SIZE)
-        while data != '':
-            stream_wave.write(data)
-            data = wave_file.readframes(self.CHUNK_SIZE)
-        stream_wave.stop_stream()
-        stream_wave.close()
-
+        sound = pygame.mixer.Sound('alert.wav')
+	sound.play(loops = 0)
+	
         self.threshold_samples = 0
         self.reset_samples = 0
         self.playing = False
@@ -92,6 +79,7 @@ if __name__ == "__main__":
 
     print ('args')
     print (args)
-
+    
+    pygame.mixer.init()    
     sensor = Sensor(args.db, args.ts, args.rs)
     sensor.detect()
