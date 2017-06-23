@@ -3,8 +3,8 @@ import audioop
 import math
 import pyaudio
 import thread
-import wave
 import pygame
+
 
 class Sensor(object):
     CHUNK_SIZE = 1024
@@ -32,8 +32,8 @@ class Sensor(object):
                             rate=self.RATE,
                             input=True,
                             frames_per_buffer=self.CHUNK_SIZE,
-			    input_device_index=2,
-			    output=False)
+                            input_device_index=2,
+                            output=False)
         print "* recording"
 
         while stream.is_active:
@@ -59,8 +59,8 @@ class Sensor(object):
     def _play_sound(self):
         self.playing = True
         sound = pygame.mixer.Sound('alert.wav')
-	sound.play(loops = 0)
-	
+        sound.play(loops=0)
+
         self.threshold_samples = 0
         self.reset_samples = 0
         self.playing = False
@@ -79,7 +79,7 @@ if __name__ == "__main__":
 
     print ('args')
     print (args)
-    
-    pygame.mixer.init()    
+
+    pygame.mixer.init()
     sensor = Sensor(args.db, args.ts, args.rs)
     sensor.detect()
